@@ -1,0 +1,135 @@
+import sqlite3
+conn = sqlite3.connect('student_grades.db')
+
+cursor = conn.cursor()
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS students (
+    student_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT,
+    last_name TEXT
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS grades (
+    grade_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id INTEGER,
+    subject TEXT,
+    grade INTEGER,
+    FOREIGN KEY(student_id) REFERENCES students(student_id)
+)
+''')
+
+conn.commit()
+
+students_data = [
+    ('Alice', 'Johnson'),
+    ('Bob', 'Smith'),
+    ('Carol', 'White'),
+    ('David', 'Brown'),
+    ('Eve', 'Davis')
+]
+
+cursor.executemany('''
+INSERT INTO students (first_name, last_name)
+VALUES (?, ?)
+''', students_data)
+
+grades_data = [
+    (1, 'Math', 95),
+    (1, 'English', 88),
+    (1, 'History', 90),
+    (2, 'Math', 82),
+    (2, 'English', 76),
+    (2, 'History', 85),
+    (3, 'Math', 89),
+    (3, 'English', 92),
+    (3, 'History', 88),
+    (4, 'Math', 90),
+    (4, 'English', 85),
+    (4, 'History', 92),
+    (5, 'Math', 78),
+    (5, 'English', 80),
+    (5, 'History', 85)
+]
+
+cursor.executemany('''
+INSERT INTO grades (student_id, subject, grade)
+VALUES (?, ?, ?)
+''', grades_data)
+
+conn.commit()
+
+cursor.execute('''
+SELECT students.first_name, students.last_name, grades.subject, grades.grade
+FROM students
+JOIN grades ON students.student_id = grades.student_id
+''')
+
+for row in cursor.fetchall():
+    print(row)
+
+cursor.execute('''
+SELECT students.first_name, students.last_name, AVG(grades.grade) AS avg_grade
+FROM students
+JOIN grades ON students.student_id = grades.student_id
+GROUP BY students.student_id
+''')
+
+for row in cursor.fetchall():
+    print(row)
+
+
+cursor.execute('''
+SELECT students.first_name, students.last_name, AVG(grades.grade) AS avg_grade
+FROM students
+JOIN grades ON students.student_id = grades.student_id
+GROUP BY students.student_id
+ORDER BY avg_grade DESC
+LIMIT 1
+''')
+
+print(cursor.fetchone())
+
+cursor.execute('''
+SELECT AVG(grade)
+FROM grades
+WHERE subject = 'Math'
+''')
+
+print(cursor.fetchone())
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+students_df = pd.read_sql_query('SELECT * FROM students', conn)
+grades_df = pd.read_sql_query('SELECT * FROM grades', conn)
+
+merged_df = pd.read_sql_query('''
+SELECT students.first_name, students.last_name, grades.subject, grades.grade
+FROM students
+JOIN grades ON students.student_id = grades.student_id
+''', conn)
+
+avg_grades = merged_df.groupby(['first_name', 'last_name'])['grade'].mean()
+
+avg_grades.plot(kind='bar', title='Average Grade for Each Student')
+plt.ylabel('Average Grade')
+plt.show()
+
+avg_subject_grades = merged_df.groupby('subject')['grade'].mean()
+
+avg_subject_grades.plot(kind='bar', title='Average Grade for Each Subject')
+plt.ylabel('Average Grade')
+plt.show()
+
+cursor.execute('''
+SELECT students.first_name, students.last_name, grades.subject, MAX(grades.grade)
+FROM students
+JOIN grades ON students.student_id = grades.student_id
+GROUP BY grades.subject
+''')
+
+for row in cursor.fetchall():
+    print(row)
